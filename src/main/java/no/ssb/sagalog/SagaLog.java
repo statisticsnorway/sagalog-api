@@ -10,6 +10,8 @@ import java.util.stream.Stream;
 
 public interface SagaLog {
 
+    SagaLogId id();
+
     CompletableFuture<SagaLogEntry> write(SagaLogEntryBuilder builder);
 
     CompletableFuture<Void> truncate(SagaLogEntryId id);

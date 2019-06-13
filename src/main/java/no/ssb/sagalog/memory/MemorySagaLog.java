@@ -5,6 +5,7 @@ import no.ssb.sagalog.SagaLog;
 import no.ssb.sagalog.SagaLogEntry;
 import no.ssb.sagalog.SagaLogEntryBuilder;
 import no.ssb.sagalog.SagaLogEntryId;
+import no.ssb.sagalog.SagaLogId;
 
 import java.nio.ByteBuffer;
 import java.util.Deque;
@@ -17,8 +18,18 @@ import java.util.stream.Stream;
 
 class MemorySagaLog implements SagaLog {
 
+    private final SagaLogId sagaLogId;
     private final AtomicLong nextId = new AtomicLong(0);
     private final Deque<SagaLogEntry> incompleteEntries = new ConcurrentLinkedDeque<>();
+
+    MemorySagaLog(SagaLogId sagaLogId) {
+        this.sagaLogId = sagaLogId;
+    }
+
+    @Override
+    public SagaLogId id() {
+        return sagaLogId;
+    }
 
     @Override
     public Stream<SagaLogEntry> readEntries(String executionId) {

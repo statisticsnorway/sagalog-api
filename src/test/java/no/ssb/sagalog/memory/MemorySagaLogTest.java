@@ -33,7 +33,7 @@ public class MemorySagaLogTest {
         MemorySagaLog sagaLog = new MemorySagaLog(new SagaLogId("test"));
 
         Deque<SagaLogEntry> initialEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
-        sagaLog.truncate(initialEntries.getLast().getId());
+        sagaLog.truncate(initialEntries.getLast().getId()).join();
 
         Deque<SagaLogEntry> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
 

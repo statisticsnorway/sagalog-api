@@ -48,7 +48,7 @@ public class SagaLogEntry {
 
     @Override
     public String toString() {
-        return "MemorySagaLogEntry{" +
+        return "SagaLogEntry{" +
                 "id=" + id +
                 ", executionId='" + executionId + '\'' +
                 ", entryType=" + entryType +

@@ -4,6 +4,13 @@ import java.util.Set;
 
 public interface SagaLogPool {
 
+    /**
+     * Generate and register a instance-local SagaLogId for the given internalId. The returned values are considered
+     * instance-local ids and will be included by the instanceLocalLogIds method.
+     *
+     * @param internalId
+     * @return
+     */
     SagaLogId idFor(String internalId);
 
     /**

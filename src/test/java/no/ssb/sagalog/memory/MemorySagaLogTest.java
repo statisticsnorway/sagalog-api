@@ -2,7 +2,6 @@ package no.ssb.sagalog.memory;
 
 import no.ssb.sagalog.SagaLogEntry;
 import no.ssb.sagalog.SagaLogEntryBuilder;
-import no.ssb.sagalog.SagaLogId;
 import org.testng.annotations.Test;
 
 import java.util.Deque;
@@ -21,7 +20,7 @@ public class MemorySagaLogTest {
 
     @Test
     public void thatWriteAndReadEntriesWorks() {
-        MemorySagaLog sagaLog = new MemorySagaLog(new SagaLogId("test"));
+        MemorySagaLog sagaLog = new MemorySagaLog(new MemorySagaLogId("01", "test"));
 
         Deque<SagaLogEntry> expectedEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
 
@@ -30,7 +29,7 @@ public class MemorySagaLogTest {
 
     @Test
     public void thatTruncateWithReadIncompleteWorks() {
-        MemorySagaLog sagaLog = new MemorySagaLog(new SagaLogId("test"));
+        MemorySagaLog sagaLog = new MemorySagaLog(new MemorySagaLogId("01", "test"));
 
         Deque<SagaLogEntry> initialEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
         sagaLog.truncate(initialEntries.getLast().getId()).join();
@@ -43,7 +42,7 @@ public class MemorySagaLogTest {
 
     @Test
     public void thatNoTruncateWithReadIncompleteWorks() {
-        MemorySagaLog sagaLog = new MemorySagaLog(new SagaLogId("test"));
+        MemorySagaLog sagaLog = new MemorySagaLog(new MemorySagaLogId("01", "test"));
 
         Deque<SagaLogEntry> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
         Deque<SagaLogEntry> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
@@ -57,7 +56,7 @@ public class MemorySagaLogTest {
 
     @Test
     public void thatSnapshotOfSagaLogEntriesByNodeIdWorks() {
-        MemorySagaLog sagaLog = new MemorySagaLog(new SagaLogId("test"));
+        MemorySagaLog sagaLog = new MemorySagaLog(new MemorySagaLogId("01", "test"));
 
         Deque<SagaLogEntry> firstEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());
         Deque<SagaLogEntry> secondEntries = writeSuccessfulVanillaSagaExecutionEntries(sagaLog, UUID.randomUUID().toString());

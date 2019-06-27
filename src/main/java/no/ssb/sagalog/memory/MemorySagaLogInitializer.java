@@ -2,7 +2,6 @@ package no.ssb.sagalog.memory;
 
 import no.ssb.sagalog.SagaLogInitializer;
 
-import java.util.Collections;
 import java.util.Map;
 
 public class MemorySagaLogInitializer implements SagaLogInitializer {
@@ -11,10 +10,10 @@ public class MemorySagaLogInitializer implements SagaLogInitializer {
     }
 
     public MemorySagaLogPool initialize(Map<String, String> configuration) {
-        return new MemorySagaLogPool();
+        return new MemorySagaLogPool(configuration.getOrDefault("cluster.instance-id", "TheOnlyInstance"));
     }
 
     public Map<String, String> configurationOptionsAndDefaults() {
-        return Collections.emptyMap();
+        return Map.of("cluster.instance-id", "TheOnlyInstance");
     }
 }

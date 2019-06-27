@@ -100,4 +100,9 @@ class MemorySagaLog implements SagaLog {
     public SagaLogEntryId fromBytes(byte[] idBytes) {
         return new MemorySagaLogEntryId(ByteBuffer.wrap(idBytes).getLong());
     }
+
+    @Override
+    public void close() {
+        incompleteEntries.clear();
+    }
 }

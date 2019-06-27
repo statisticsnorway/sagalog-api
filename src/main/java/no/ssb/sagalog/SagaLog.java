@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public interface SagaLog {
+public interface SagaLog extends AutoCloseable {
 
     SagaLogId id();
 

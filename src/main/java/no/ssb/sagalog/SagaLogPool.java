@@ -1,17 +1,48 @@
 package no.ssb.sagalog;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public interface SagaLogPool {
 
     /**
-     * Generate and register a instance-local SagaLogId for the given internalId. The returned values are considered
-     * instance-local ids and will be included by the instanceLocalLogIds method.
+     * Get the cluster-instance-id used when registering and managing instance-local saga-logs or saga-log-ids.
      *
-     * @param internalId
+     * @return the instance-local cluster-id.
+     */
+    String getLocalClusterInstanceId();
+
+    /**
+     * Generate a SagaLogId for the given clusterInstanceId and internalId.
+     *
+     * @param clusterInstanceId
+     * @param logName
      * @return
      */
-    SagaLogId idFor(String internalId);
+    SagaLogId idFor(String clusterInstanceId, String logName);
+
+    /**
+     * Generate and register an instance-local SagaLogId for the given logName. The returned values are considered
+     * instance-local ids and will be included by the instanceLocalLogIds method.
+     *
+     * @param logName
+     * @return
+     */
+    SagaLogId registerInstanceLocalIdFor(String logName);
+
+    /**
+     * @param group
+     * @param deadLetterInternalIdRegex
+     */
+    void registerIdPattern(String group, Pattern deadLetterInternalIdRegex);
+
+    /**
+     * @param group
+     * @param logId
+     * @return true if the saga-log with the given logId matches the matter as registered by group.
+     */
+    boolean doesSagaLogIdMatchPattern(String group, SagaLogId logId);
 
     /**
      * List all logIds cluster-wide that is relevant to a recovery procedure and available from this instance. This will
@@ -42,22 +73,55 @@ public interface SagaLogPool {
     Set<SagaLogOwnership> instanceLocalSagaLogOwnerships();
 
     /**
-     * Connect to the saga-log with the given logId and add this saga-log to the pool. This will typically open a
-     * reusable connection or io-channel backing the saga-log. If the saga-log is already present in the pool, that log
-     * is returned immediately without registering or affecting ownership.
+     * Attempt to connect to the external saga-log resource associated with the given logId, which implies that this
+     * pool will take exclusive ownership of such external resource. If successful, the ownership is awarded to this
+     * pool, and the returned SagaLog is cached in the pool. In order to release ownership, the remove method should
+     * be invoked on this pool. Connect will typically open a reusable connection or io-channel to the backing saga-log.
+     * If the saga-log is already present in the pool, that log is returned immediately without registering or affecting
+     * ownership. If the saga-log is already owned by another pool or external party, a SagaLogBusyException is thrown.
      *
-     * @param logId
-     * @return
+     * @param logId the id of the log to connect to
+     * @return the successfully connected SagaLog
+     * @throws SagaLogBusyException if the saga-log is busy due to this pool not being able to take exclusive ownership
+     *                              of the related external resource.
      */
-    SagaLog connect(SagaLogId logId);
+    SagaLog connect(SagaLogId logId) throws SagaLogBusyException;
 
     /**
-     * Close and then remove the saga-log with the given logId from the pool. This will cause subsequent calls to acquire
-     * on the same logId to re-connect to the log.
+     * Close and then remove (but does not release) the saga-log with the given logId from the pool. This will cause
+     * subsequent calls to acquire on the same logId to re-connect to the log. Note that if the log is not already
+     * released when this method is called, then this method will throw an IllegalStateException.
      *
      * @param logId
      */
     void remove(SagaLogId logId);
+
+    /**
+     * @param owner
+     * @return
+     * @throws SagaLogBusyException
+     * @throws SagaLogAlreadyAquiredByOtherOwnerException
+     */
+    SagaLog tryAcquire(SagaLogOwner owner) throws SagaLogBusyException, SagaLogAlreadyAquiredByOtherOwnerException;
+
+    /**
+     * @param owner
+     * @param timeout
+     * @param unit
+     * @return
+     * @throws InterruptedException
+     * @throws SagaLogBusyException
+     * @throws SagaLogAlreadyAquiredByOtherOwnerException
+     */
+    SagaLog tryAcquire(SagaLogOwner owner, int timeout, TimeUnit unit) throws InterruptedException, SagaLogBusyException, SagaLogAlreadyAquiredByOtherOwnerException;
+
+    /**
+     * Releases ownership, then returns the saga-log with the given logId to the pool making it available through the
+     * tryAcquire methods again.
+     *
+     * @param logId
+     */
+    void release(SagaLogId logId);
 
     /**
      * Acquire the saga-log with the given logId, obtaining  exclusive access and ownership to this log across calls to
@@ -67,26 +131,39 @@ public interface SagaLogPool {
      * @param owner the owner that wants to acquire the saga-log.
      * @param logId the id of the saga-log to acquire.
      * @return the sagalog with the given logI.
-     * @throws SagaLogAlreadyAquiredByOtherOwnerException if the saga-log with the given logId was already acquired without yet
+     * @throws SagaLogBusyException                       if the saga-log with the given logId was already acquired without yet
      *                                                    being released.
+     * @throws SagaLogAlreadyAquiredByOtherOwnerException if the log is already acquired locally in the pool by another owner
      */
-    SagaLog acquire(SagaLogOwner owner, SagaLogId logId) throws SagaLogAlreadyAquiredByOtherOwnerException;
+    SagaLog tryTakeOwnership(SagaLogOwner owner, SagaLogId logId) throws SagaLogBusyException, SagaLogAlreadyAquiredByOtherOwnerException;
 
     /**
-     * Release ownership of the saga-logs owned by the given owner. This will ensure that the logs are available in this
-     * pool after this method returns.
+     * Acquire the saga-log with the given logId, obtaining  exclusive access and ownership to this log across calls to
+     * this method in this saga-log pool. If the log is not already present in the pool, this method connects the
+     * saga-log first and then add it to the pool.
      *
-     * @param owner
+     * @param owner the owner that wants to acquire the saga-log.
+     * @param logId the id of the saga-log to acquire.
+     * @return the sagalog with the given logId.
+     * @throws InterruptedException                       if the calling thread is interrupted while attempting to obtain ownership of the log
+     * @throws SagaLogBusyException                       if the saga-log with the given logId was busy, i.e. owned by another pool or
+     *                                                    external party.
+     * @throws SagaLogAlreadyAquiredByOtherOwnerException if the log is already acquired locally in the pool by another owner
      */
-    void release(SagaLogOwner owner);
+    SagaLog tryTakeOwnership(SagaLogOwner owner, SagaLogId logId, long timeout, TimeUnit unit) throws InterruptedException, SagaLogBusyException, SagaLogAlreadyAquiredByOtherOwnerException;
 
     /**
-     * Release ownership of the saga-log with the given logId. This will ensure that the log is available in this pool
-     * after this method returns.
+     * Release ownership of the saga-log with the given logId.
      *
      * @param logId
      */
-    void release(SagaLogId logId);
+    void releaseOwnership(SagaLogId logId);
+
+    /**
+     * @param logId
+     * @return true if the underlying saga-log associated with logId was deleted, false otherwise.
+     */
+    boolean delete(SagaLogId logId);
 
     /**
      * Shutdown the pool closing and removing all logs from the pool. Shutting down an alread

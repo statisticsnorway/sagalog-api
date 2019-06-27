@@ -11,33 +11,21 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-
-import static java.util.Optional.ofNullable;
 
 public abstract class AbstractSagaLogPool implements SagaLogPool {
 
     private final String clusterInstanceId;
-    private final Set<SagaLogId> instanceLocalSagaLogIds = new CopyOnWriteArraySet();
+    private final Set<SagaLogId> registeredInstanceLocalSagaLogIds = new CopyOnWriteArraySet();
     private final Map<SagaLogId, SagaLog> sagaLogByLogId = new ConcurrentHashMap<>();
     private final Map<SagaLogId, SagaLogOwnership> ownershipByLogId = new ConcurrentHashMap<>();
     private final Map<SagaLogId, Semaphore> exclusiveLockByLogId = new ConcurrentHashMap<>();
     private final BlockingDeque<SagaLogId> availableInstanceLocalIds = new LinkedBlockingDeque<>();
-
-    protected final Map<String, Pattern> idPatternByGroup = new ConcurrentHashMap<>();
 
     protected AbstractSagaLogPool(String clusterInstanceId) {
         this.clusterInstanceId = clusterInstanceId;
     }
 
     protected abstract SagaLog connectExternal(SagaLogId logId) throws SagaLogBusyException;
-
-    @Override
-    public boolean doesSagaLogIdMatchPattern(String group, SagaLogId logId) {
-        return ofNullable(idPatternByGroup.get(group))
-                .map(pattern -> pattern.matcher(logId.getLogName()).matches())
-                .orElse(Boolean.FALSE);
-    }
 
     @Override
     public String getLocalClusterInstanceId() {
@@ -52,25 +40,22 @@ public abstract class AbstractSagaLogPool implements SagaLogPool {
     @Override
     public SagaLogId registerInstanceLocalIdFor(String logName) {
         SagaLogId sagaLogId = idFor(clusterInstanceId, logName);
-        if (instanceLocalSagaLogIds.add(sagaLogId)) {
+        if (registeredInstanceLocalSagaLogIds.add(sagaLogId)) {
             availableInstanceLocalIds.add(sagaLogId);
         }
         return sagaLogId;
     }
 
     @Override
-    public void registerIdPattern(String group, Pattern deadLetterInternalIdRegex) {
-        idPatternByGroup.put(group, deadLetterInternalIdRegex);
-    }
-
-    @Override
     public Set<SagaLogId> instanceLocalLogIds() {
-        return Collections.unmodifiableSet(instanceLocalSagaLogIds);
+        return Collections.unmodifiableSet(registeredInstanceLocalSagaLogIds);
     }
 
     @Override
     public Set<SagaLogOwnership> instanceLocalSagaLogOwnerships() {
-        return new LinkedHashSet<>(ownershipByLogId.values());
+        LinkedHashSet<SagaLogOwnership> ownerships = new LinkedHashSet<>(ownershipByLogId.values());
+        ownerships.removeIf(ownership -> !clusterInstanceId.equals(ownership.getLogId().getClusterInstanceId()));
+        return ownerships;
     }
 
     @Override
@@ -134,7 +119,7 @@ public abstract class AbstractSagaLogPool implements SagaLogPool {
         try {
             releaseOwnership(logId);
         } finally {
-            if (instanceLocalSagaLogIds.contains(logId)) {
+            if (registeredInstanceLocalSagaLogIds.contains(logId)) {
                 availableInstanceLocalIds.addLast(logId);
             }
         }

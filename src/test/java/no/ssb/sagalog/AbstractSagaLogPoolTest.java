@@ -8,10 +8,8 @@ import org.testng.annotations.Test;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -132,24 +130,6 @@ public class AbstractSagaLogPoolTest {
         SagaLog sagaLog = pool.tryTakeOwnership(new SagaLogOwner("me"), pool.registerInstanceLocalIdFor("registered-1"));
         pool.release(sagaLog.id());
         pool.remove(sagaLog.id());
-    }
-
-    @Test
-    public void thatMatchingPatternGivesPositiveMatch() {
-        pool.registerIdPattern("dead-letter-saga", Pattern.compile("DEAD-LETTER-(.*)"));
-        assertTrue(pool.doesSagaLogIdMatchPattern("dead-letter-saga", pool.idFor(pool.getLocalClusterInstanceId(), "DEAD-LETTER-SAGA-1")));
-    }
-
-    @Test
-    public void thatOtherClusterInstanceMatchingPatternGivesPositiveMatch() {
-        pool.registerIdPattern("dead-letter-saga", Pattern.compile("DEAD-LETTER-(.*)"));
-        assertTrue(pool.doesSagaLogIdMatchPattern("dead-letter-saga", pool.idFor("other-cluster-id", "DEAD-LETTER-SAGA-1")));
-    }
-
-    @Test
-    public void thatNotMatchingPatternGivesNegativeMatch() {
-        pool.registerIdPattern("dead-letter-saga", Pattern.compile("DEAD-LETTER-(.*)"));
-        assertFalse(pool.doesSagaLogIdMatchPattern("dead-letter-saga", pool.idFor(pool.getLocalClusterInstanceId(), "DEAD-SOMETHING-SAGA-1")));
     }
 
     @Test

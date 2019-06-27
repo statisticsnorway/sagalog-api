@@ -2,7 +2,6 @@ package no.ssb.sagalog;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 public interface SagaLogPool {
 
@@ -30,19 +29,6 @@ public interface SagaLogPool {
      * @return
      */
     SagaLogId registerInstanceLocalIdFor(String logName);
-
-    /**
-     * @param group
-     * @param deadLetterInternalIdRegex
-     */
-    void registerIdPattern(String group, Pattern deadLetterInternalIdRegex);
-
-    /**
-     * @param group
-     * @param logId
-     * @return true if the saga-log with the given logId matches the matter as registered by group.
-     */
-    boolean doesSagaLogIdMatchPattern(String group, SagaLogId logId);
 
     /**
      * List all logIds cluster-wide that is relevant to a recovery procedure and available from this instance. This will
